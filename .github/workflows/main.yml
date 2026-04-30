@@ -10,7 +10,8 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja cmake git lld-18 clang-18
+          # Ubuntu 22.04 默认仓库就有 clang-16 和 lld-16，无需额外添加源
+          sudo apt-get install -y ninja-build cmake git lld-16 clang-16
 
       - name: Checkout Polaris
         uses: actions/checkout@v4
@@ -29,8 +30,8 @@ jobs:
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="X86" \
             -DLLVM_USE_LINKER=lld \
-            -DCMAKE_C_COMPILER=clang-18 \
-            -DCMAKE_CXX_COMPILER=clang++-18 \
+            -DCMAKE_C_COMPILER=clang-16 \
+            -DCMAKE_CXX_COMPILER=clang++-16 \
             ../llvm
           ninja clang lld
 

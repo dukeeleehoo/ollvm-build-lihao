@@ -1,4 +1,4 @@
-name: Build Polaris Obfuscator
+name: Build Polaris Obfuscator (Fix LLVM 16)
 
 on:
   workflow_dispatch:
@@ -7,11 +7,15 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - name: Install Dependencies
+      - name: Install Dependencies (LLVM 16)
         run: |
           sudo apt-get update
-          # Ubuntu 22.04 默认仓库就有 clang-16 和 lld-16，无需额外添加源
-          sudo apt-get install -y ninja-build cmake git lld-16 clang-16
+          sudo apt-get install -y ninja-build cmake git software-properties-common
+          # 添加 LLVM 16 官方仓库
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
+          sudo apt-get update
+          sudo apt-get install -y lld-16 clang-16
 
       - name: Checkout Polaris
         uses: actions/checkout@v4
@@ -38,10 +42,10 @@ jobs:
       - name: Package Artifact
         run: |
           mkdir -p polaris-toolchain/bin
-          cp Polaris-Obfuscator/src/build/bin/clang polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/clang++ polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/clang-cl polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/lld polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/clang      polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/clang++    polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/clang-cl   polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/lld        polaris-toolchain/bin/
           tar -czf polaris-toolchain.tar.gz polaris-toolchain
 
       - name: Upload Artifact

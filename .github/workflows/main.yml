@@ -1,56 +1,61 @@
-name: Build Polaris Obfuscator (Fix LLVM 16)
+name: Build Polaris Obfuscator (Windows)
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: windows-latest
+    env:
+      LLVM_VERSION: 16.0.6
     steps:
-      - name: Install Dependencies (LLVM 16)
+      - name: Install Build Tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build cmake git software-properties-common
-          # 添加 LLVM 16 官方仓库
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
-          sudo apt-get update
-          sudo apt-get install -y lld-16 clang-16
+          # 安装 ninja 和 cmake（choco 自带但可能不是最新，这里确保安装）
+          choco install ninja cmake -y --no-progress
+          # 刷新环境变量
+          refreshenv
+          # 下载 LLVM 16.0.6 官方安装包
+          curl -L -o "${{ runner.temp }}\LLVM.exe" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ env.LLVM_VERSION }}/LLVM-${{ env.LLVM_VERSION }}-win64.exe"
+          # 静默安装到 C:\Program Files\LLVM
+          Start-Process -Wait -FilePath "${{ runner.temp }}\LLVM.exe" -ArgumentList "/S","/D=C:\Program Files\LLVM"
+          # 将 LLVM 的 bin 目录加入 PATH
+          echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Checkout Polaris
         uses: actions/checkout@v4
         with:
           repository: za233/Polaris-Obfuscator
-          ref: main
           path: Polaris-Obfuscator
 
       - name: Build Polaris
+        working-directory: Polaris-Obfuscator\src
         run: |
-          cd Polaris-Obfuscator/src
-          mkdir build && cd build
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ENABLE_ASSERTIONS=Off \
-            -DLLVM_ENABLE_PROJECTS="clang;lld" \
-            -DLLVM_TARGETS_TO_BUILD="X86" \
-            -DLLVM_USE_LINKER=lld \
-            -DCMAKE_C_COMPILER=clang-16 \
-            -DCMAKE_CXX_COMPILER=clang++-16 \
-            ../llvm
+          mkdir build
+          cd build
+          cmake -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLLVM_ENABLE_ASSERTIONS=Off `
+            -DLLVM_ENABLE_PROJECTS="clang;lld" `
+            -DLLVM_TARGETS_TO_BUILD="X86" `
+            -DCMAKE_C_COMPILER=clang-cl `
+            -DCMAKE_CXX_COMPILER=clang-cl `
+            -DCMAKE_LINKER=lld-link `
+            ..\llvm
           ninja clang lld
 
       - name: Package Artifact
         run: |
-          mkdir -p polaris-toolchain/bin
-          cp Polaris-Obfuscator/src/build/bin/clang      polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/clang++    polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/clang-cl   polaris-toolchain/bin/
-          cp Polaris-Obfuscator/src/build/bin/lld        polaris-toolchain/bin/
-          tar -czf polaris-toolchain.tar.gz polaris-toolchain
+          mkdir Polaris-toolchain\bin
+          copy Polaris-Obfuscator\src\build\bin\clang.exe Polaris-toolchain\bin\clang.exe
+          copy Polaris-Obfuscator\src\build\bin\clang++.exe Polaris-toolchain\bin\clang++.exe
+          copy Polaris-Obfuscator\src\build\bin\clang-cl.exe Polaris-toolchain\bin\clang-cl.exe
+          copy Polaris-Obfuscator\src\build\bin\lld.exe Polaris-toolchain\bin\lld.exe
+          7z a polaris-toolchain.zip Polaris-toolchain
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: polaris-toolchain
-          path: polaris-toolchain.tar.gz
+          name: polaris-toolchain-win64
+          path: polaris-toolchain.zip
           if-no-files-found: error

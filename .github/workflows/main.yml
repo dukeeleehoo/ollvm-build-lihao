@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2019          # 关键！解决 VS 版本兼容问题
     env:
       LLVM_VERSION: 16.0.6
     steps:
@@ -23,13 +23,6 @@ jobs:
             [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + `
             [System.Environment]::GetEnvironmentVariable("Path","User")
 
-      # 强制使用 Visual Studio 2019 工具链，避免 MSVC 2022 的 tuple 静态断言错误
-      - name: Setup VS 2019 Build Environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          vsversion: "2019"
-          arch: x64
-
       - name: Checkout Polaris Source
         uses: actions/checkout@v4
         with:
@@ -46,12 +39,10 @@ jobs:
             -DLLVM_ENABLE_ASSERTIONS=Off `
             -DLLVM_ENABLE_PROJECTS="clang;lld" `
             -DLLVM_TARGETS_TO_BUILD="X86" `
-            -DCMAKE_C_COMPILER=clang `
-            -DCMAKE_CXX_COMPILER=clang++ `
+            -DCMAKE_C_COMPILER=clang-cl `
+            -DCMAKE_CXX_COMPILER=clang-cl `
             -DCMAKE_LINKER=lld-link `
             -DCMAKE_SYSTEM_NAME=Windows `
-            -DLLVM_HOST_TRIPLE="x86_64-pc-windows-msvc" `
-            -DLLVM_TARGET_TRIPLE="x86_64-pc-windows-msvc" `
             -DHAVE_CXX_ATOMICS_WITHOUT_LIB=TRUE `
             -DHAVE_CXX_ATOMICS64_WITHOUT_LIB=TRUE `
             ..\llvm

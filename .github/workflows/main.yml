@@ -1,53 +1,48 @@
-name: Build OLLVM-21 Toolchain
+name: Build Polaris Obfuscator
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+  workflow_dispatch:  # 手动触发
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-    - name: Install Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake git lld clang
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake git lld clang
 
-    - name: Clone OLLVM-21 Source
-      run: |
-        git clone https://github.com/lux-QAQ/ollvm-clang21.0
-        cd ollvm-clang21.0
+      - name: Checkout Polaris Source
+        uses: actions/checkout@v4
+        with:
+          repository: za233/Polaris-Obfuscator
+          path: Polaris-Obfuscator
 
-    - name: Configure CMake (Minimal Mode)
-      run: |
-        cd ollvm-clang21.0
-        mkdir build && cd build
-        cmake -G Ninja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DLLVM_ENABLE_PROJECTS="clang" \
-          -DLLVM_TARGETS_TO_BUILD="X86" \
-          -DLLVM_USE_LINKER=lld \
-          -DCMAKE_C_COMPILER=clang \
-          -DCMAKE_CXX_COMPILER=clang++ \
-          ../llvm
+      - name: Build Polaris
+        run: |
+          cd Polaris-Obfuscator
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=Off \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_TARGETS_TO_BUILD="X86" \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            ../llvm
+          ninja -j $(nproc) clang
 
-    - name: Build Clang (Single Thread)
-      run: |
-        cd ollvm-clang21.0/build
-        ninja -j 1 clang
+      - name: Package Polaris Artifact
+        run: |
+          mkdir -p Polaris-toolchain/bin
+          cp Polaris-Obfuscator/build/bin/clang Polaris-toolchain/bin/
+          cp Polaris-Obfuscator/build/bin/clang++ Polaris-toolchain/bin/
+          cp Polaris-Obfuscator/build/bin/clang-cl Polaris-toolchain/bin/
+          tar -czf polaris-toolchain.tar.gz Polaris-toolchain
 
-    - name: Package for Windows
-      run: |
-        cd ollvm-clang21.0/build
-        mkdir -p ollvm-toolchain/bin
-        cp bin/clang ollvm-toolchain/bin/
-        cp bin/clang++ ollvm-toolchain/bin/
-        cp bin/clang-cl ollvm-toolchain/bin/
-        tar -czf ../ollvm21-toolchain.tar.gz ollvm-toolchain
-
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ollvm21-toolchain
-        path: ollvm-clang21.0/build/ollvm21-toolchain.tar.gz
+      - name: Upload Polaris Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: polaris-toolchain
+          path: polaris-toolchain.tar.gz
+          if-no-files-found: error

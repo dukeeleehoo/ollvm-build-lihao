@@ -1,66 +1,52 @@
-name: Build Hikari-LLVM15 Toolchain
+name: Build Polaris Obfuscator
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+  workflow_dispatch: # 手动触发
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake git clang lld
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake git lld clang
 
-    - name: Clone Hikari-LLVM15 source
-      run: |
-        git clone https://github.com/HikariObfuscator/Hikari-LLVM15 llvm-project
-        cd llvm-project
-        git rev-parse HEAD > ../commit_hash.txt
-        cd ..
+      - name: Checkout Polaris Source
+        uses: actions/checkout@v4
+        with:
+          repository: za233/Polaris-Obfuscator
+          path: Polaris-Obfuscator
 
-    - name: Configure CMake
-      run: |
-        cd llvm-project/llvm
-        mkdir build && cd build
-        cmake -G Ninja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra" \
-          -DLLVM_TARGETS_TO_BUILD="X86" \
-          -DLLVM_ENABLE_NEW_PASS_MANAGER=OFF \
-          -DLLVM_ENABLE_LIBCXX=ON \
-          -DCMAKE_C_COMPILER=clang \
-          -DCMAKE_CXX_COMPILER=clang++ \
-          ..
+      - name: Build Polaris
+        run: |
+          cd Polaris-Obfuscator
+          # 直接在源码根目录下创建build，然后用 ../llvm 指向llvm源代码
+          mkdir build && cd build
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=Off \
+            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_TARGETS_TO_BUILD="X86" \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            ../llvm
+          ninja -j $(nproc) clang
 
-    - name: Build Clang
-      run: |
-        cd llvm-project/llvm/build
-        ninja clang
+      - name: Package Polaris Artifact
+        run: |
+          # 回到工作区根目录
+          mkdir -p Polaris-toolchain/bin
+          # 二进制文件位于 Polaris-Obfuscator/build/bin/ 下
+          cp Polaris-Obfuscator/build/bin/clang Polaris-toolchain/bin/
+          cp Polaris-Obfuscator/build/bin/clang++ Polaris-toolchain/bin/
+          cp Polaris-Obfuscator/build/bin/clang-cl Polaris-toolchain/bin/
+          # 打包在当前目录，确保上传步骤能找到
+          tar -czf polaris-toolchain.tar.gz Polaris-toolchain
 
-    - name: Package toolchain
-      run: |
-        cd llvm-project/llvm/build
-        mkdir -p ollvm-toolchain/bin
-        mkdir -p ollvm-toolchain/lib
-        mkdir -p ollvm-toolchain/include
-        cp bin/clang-15 ollvm-toolchain/bin/
-        cp bin/clang ollvm-toolchain/bin/
-        cp bin/clang++ ollvm-toolchain/bin/
-        cp bin/clang-cl ollvm-toolchain/bin/
-        cp bin/lld ollvm-toolchain/bin/
-        cp bin/llvm-ar ollvm-toolchain/bin/
-        cp bin/llvm-ranlib ollvm-toolchain/bin/
-        cp bin/llvm-strip ollvm-toolchain/bin/
-        cp lib/libc++.a ollvm-toolchain/lib/
-        cp lib/libc++abi.a ollvm-toolchain/lib/
-        cp -r ../../libcxx/include/* ollvm-toolchain/include/
-        tar -czf ../ollvm-toolchain.tar.gz ollvm-toolchain
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: hikari-llvm15-toolchain
-        path: llvm-project/llvm/build/ollvm-toolchain.tar.gz
+      - name: Upload Polaris Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: polaris-toolchain
+          path: polaris-toolchain.tar.gz
+          if-no-files-found: error

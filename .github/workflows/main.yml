@@ -11,12 +11,17 @@ jobs:
     steps:
       - name: Install Build Tools and LLVM
         run: |
-          # 安装 Ninja 和 CMake
-          choco install ninja cmake -y --no-progress
-          # 下载并安装 LLVM 16.0.6 官方发行版
-          curl -L -o "${{ runner.temp }}\LLVM.exe" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ env.LLVM_VERSION }}/LLVM-${{ env.LLVM_VERSION }}-win64.exe"
-          Start-Process -Wait -FilePath "${{ runner.temp }}\LLVM.exe" -ArgumentList "/S","/D=C:\Program Files\LLVM"
-          # 将 LLVM 的 bin 目录追加到 GITHUB_PATH（非临时环境变量的永久修改）
+          # 安装 Ninja 和 CMake（忽略已安装的警告）
+          choco install ninja cmake -y --no-progress --ignore-checksums
+          # 刷新环境变量，使 cmake 等命令在当前 shell 中可用
+          refreshenv
+          # 用 PowerShell 正确的命令下载 LLVM 安装包
+          $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.exe"
+          $output = "$env:RUNNER_TEMP\LLVM.exe"
+          Invoke-WebRequest -Uri $url -OutFile $output
+          # 静默安装到 C:\Program Files\LLVM
+          Start-Process -Wait -FilePath $output -ArgumentList "/S","/D=C:\Program Files\LLVM"
+          # 将 LLVM 的 bin 目录添加到 GITHUB_PATH，后续所有步骤都能找到 clang
           echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: powershell
 

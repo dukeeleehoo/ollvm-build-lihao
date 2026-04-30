@@ -1,4 +1,4 @@
-name: Build OLLVM-15 (Stable)
+name: Build Polaris Obfuscator
 
 on:
   workflow_dispatch:
@@ -10,42 +10,42 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # 安装 clang-15 和 lld-15 以获得最佳编译速度
-          sudo apt-get install -y ninja-build cmake git lld-15 clang-15
+          sudo apt-get install -y ninja cmake git lld-18 clang-18
 
-      - name: Checkout OLLVM-15 Source
+      - name: Checkout Polaris
         uses: actions/checkout@v4
         with:
-          repository: heroims/obfuscator     # 使用最稳定的社区移植版
-          ref: llvm-15.0                     # 专门为 LLVM 15 适配的分支
-          path: obfuscator
+          repository: za233/Polaris-Obfuscator
+          ref: main
+          path: Polaris-Obfuscator
 
-      - name: Build OLLVM-15
+      - name: Build Polaris
         run: |
-          cd obfuscator                     # 源码就在根目录，直接进入
+          cd Polaris-Obfuscator/src
           mkdir build && cd build
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ENABLE_PROJECTS="clang" \
+            -DLLVM_ENABLE_ASSERTIONS=Off \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_TARGETS_TO_BUILD="X86" \
             -DLLVM_USE_LINKER=lld \
-            -DCMAKE_C_COMPILER=clang-15 \
-            -DCMAKE_CXX_COMPILER=clang++-15 \
-            ../llvm                         # 正确指向根目录下的 llvm 源码
-          ninja -j $(nproc) clang
+            -DCMAKE_C_COMPILER=clang-18 \
+            -DCMAKE_CXX_COMPILER=clang++-18 \
+            ../llvm
+          ninja clang lld
 
-      - name: Package OLLVM-15 Artifact
+      - name: Package Artifact
         run: |
-          mkdir -p ollvm15-toolchain/bin
-          # 二进制文件生成在 obfuscator/build/bin/ 下
-          cp obfuscator/build/bin/clang ollvm15-toolchain/bin/
-          cp obfuscator/build/bin/clang++ ollvm15-toolchain/bin/
-          cp obfuscator/build/bin/clang-cl ollvm15-toolchain/bin/
-          tar -czf ollvm15-toolchain.tar.gz ollvm15-toolchain
+          mkdir -p polaris-toolchain/bin
+          cp Polaris-Obfuscator/src/build/bin/clang polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/clang++ polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/clang-cl polaris-toolchain/bin/
+          cp Polaris-Obfuscator/src/build/bin/lld polaris-toolchain/bin/
+          tar -czf polaris-toolchain.tar.gz polaris-toolchain
 
-      - name: Upload OLLVM-15 Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ollvm15-toolchain
-          path: ollvm15-toolchain.tar.gz
+          name: polaris-toolchain
+          path: polaris-toolchain.tar.gz
           if-no-files-found: error
